@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/smtp"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 type user struct {
@@ -88,9 +91,6 @@ func sendEmail(c *gin.Context) {
 
 	verseName, verseText, err := getBibleVerse(newUser.Verse)
 
-	fmt.Println(verseName)
-	fmt.Println(verseText)
-
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
 			"message": "Failed to fetch verse",
@@ -98,24 +98,62 @@ func sendEmail(c *gin.Context) {
 		return
 	}
 
-	// Create an HTML email template with the verse
-	from := "a135b9a056bcc2@sandbox.smtp.mailtrap.io" // Using the username as the from address
-	password := "4d04cd8c684981"
+	from := os.Getenv("FROM_EMAIL") // Using the username as the from address
+	password := os.Getenv("SMTP_PASSWORD")
 	to := []string{newUser.Email}
-	smtpHost := "sandbox.smtp.mailtrap.io"
-	smtpPort := "2525" // You can also try "25", "465", or "587" if "2525" doesn't work
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT") // You can also try "25", "465", or "587" if "2525" doesn't work
 
 	// Email message
-	message := []byte("To: " + newUser.Email + "\r\n" +
+	message := `
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    .email-container {
+        background-image: url('https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg');
+        background-size: cover;
+        padding: 20px;
+        text-align: center;
+        color: #ffffff;
+    }
+    .email-content {
+        background: rgba(0, 0, 0, 0.7); /* semi-transparent black */
+        padding: 20px;
+    }
+    h1 {
+        color: #fff;
+    }
+    p {
+        color: #fff;
+    }
+</style>
+</head>
+<body>
+<div class="email-container">
+    <div class="email-content">
+        <h1>Welcome to Our Community, ` + newUser.Name + `!</h1>
+        <p>Hello ` + newUser.Name + `, here is your verse:</p>
+        <p><strong>` + verseName + `</strong></p>
+        <p>` + verseText + `</p>
+    </div>
+</div>
+</body>
+</html>
+`
+
+	// Convert the message to a byte slice
+	msg := []byte("To: " + newUser.Email + "\r\n" +
 		"Subject: Welcome!\r\n" +
-		"\r\n" +
-		"Hello " + newUser.Name + ", here is your verse. \n" + verseName + "\n" + verseText)
+		"MIME-Version: 1.0\r\n" +
+		"Content-Type: text/html; charset=UTF-8\r\n\r\n" +
+		message)
 
 	// Authenticate with the SMTP server
 	auth := smtp.PlainAuth("", "a135b9a056bcc2", password, smtpHost) // Use the provided username for authentication
 
 	// Send the email
-	newerr := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
+	newerr := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, msg)
 	if newerr != nil {
 		fmt.Println(err)
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{
@@ -132,6 +170,10 @@ func sendEmail(c *gin.Context) {
 
 func main() {
 	router := gin.Default()
+	err := godotenv.Load() // This will load the .env file
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
 
 	router.GET("/test", testFun)
 	router.POST("/user", sendEmail)
