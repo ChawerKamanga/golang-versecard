@@ -13,6 +13,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+var BaseURL = "https://query.getbible.net/v2/kjv/"
+
 type user struct {
 	ID    int    `json:"id"`
 	Name  string `json:"name"`
@@ -46,123 +48,117 @@ func testFun(c *gin.Context) {
 	})
 }
 
+func checkError(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func respondWithError(c *gin.Context, statusCode int, message string) {
+	c.IndentedJSON(statusCode, gin.H{"message": message})
+}
+
 func getBibleVerse(verse string) (string, string, error) {
-	url := fmt.Sprintf("https://query.getbible.net/v2/kjv/%s", verse)
+	url := fmt.Sprintf(BaseURL+"%s", verse)
 
 	resp, err := http.Get(url)
-	if err != nil {
-		return "", "", err
-	}
+	checkError(err)
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", err
-	}
+	checkError(err)
 
 	var verseResponse VerseResponse
 	err = json.Unmarshal(body, &verseResponse)
-	if err != nil {
-		return "", "", err
-	}
+	checkError(err)
 
 	var verseName, verseText string
 	for _, v := range verseResponse {
-		for _, verse := range v.Verses {
-			verseName = verse.Name
-			verseText = verse.Text
-			break // assuming you need only the first verse
-		}
-		break // break after handling the first key-value pair
+		verseName = v.Verses[0].Name
+		verseText = v.Verses[0].Text
+		break
 	}
 
 	return verseName, verseText, nil
+}
+
+func generateEmailTemplate(newUser user, verseName string, verseText string) string {
+	return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <style>
+        .email-container {
+            background-image: url('https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg');
+            background-size: cover;
+            padding: 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+        .email-content {
+            background: rgba(0, 0, 0, 0.7); /* semi-transparent black */
+            padding: 20px;
+        }
+        h1 {
+            color: #fff;
+        }
+        p {
+            color: #fff;
+        }
+    </style>
+    </head>
+    <body>
+    <div class="email-container">
+        <div class="email-content">
+            <h1>Welcome to Our Community, ` + newUser.Name + `!</h1>
+            <p>Hello ` + newUser.Name + `, here is your verse:</p>
+            <p><strong>` + verseName + `</strong></p>
+            <p>` + verseText + `</p>
+        </div>
+    </div>
+    </body>
+    </html>
+    `
 }
 
 func sendEmail(c *gin.Context) {
 	var newUser user
 
 	if err := c.BindJSON(&newUser); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{
-			"message": "Error in binding JSON",
-		})
+		respondWithError(c, http.StatusBadRequest, "Error in binding JSON")
 		return
 	}
 
 	verseName, verseText, err := getBibleVerse(newUser.Verse)
 
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{
-			"message": "Failed to fetch verse",
-		})
+		respondWithError(c, http.StatusInternalServerError, "Failed to fetch verse")
 		return
 	}
 
-	from := os.Getenv("FROM_EMAIL") // Using the username as the from address
+	from := os.Getenv("FROM_EMAIL")
 	password := os.Getenv("SMTP_PASSWORD")
 	to := []string{newUser.Email}
 	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := os.Getenv("SMTP_PORT") // You can also try "25", "465", or "587" if "2525" doesn't work
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpUsername := os.Getenv("SMTP_USERNAME")
 
-	// Email message
-	message := `
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-    .email-container {
-        background-image: url('https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg');
-        background-size: cover;
-        padding: 20px;
-        text-align: center;
-        color: #ffffff;
-    }
-    .email-content {
-        background: rgba(0, 0, 0, 0.7); /* semi-transparent black */
-        padding: 20px;
-    }
-    h1 {
-        color: #fff;
-    }
-    p {
-        color: #fff;
-    }
-</style>
-</head>
-<body>
-<div class="email-container">
-    <div class="email-content">
-        <h1>Welcome to Our Community, ` + newUser.Name + `!</h1>
-        <p>Hello ` + newUser.Name + `, here is your verse:</p>
-        <p><strong>` + verseName + `</strong></p>
-        <p>` + verseText + `</p>
-    </div>
-</div>
-</body>
-</html>
-`
+	message := generateEmailTemplate(newUser, verseName, verseText)
 
-	// Convert the message to a byte slice
 	msg := []byte("To: " + newUser.Email + "\r\n" +
-		"Subject: Welcome!\r\n" +
+		"Subject: Your Verse!\r\n" +
 		"MIME-Version: 1.0\r\n" +
 		"Content-Type: text/html; charset=UTF-8\r\n\r\n" +
 		message)
 
-	// Authenticate with the SMTP server
-	auth := smtp.PlainAuth("", "a135b9a056bcc2", password, smtpHost) // Use the provided username for authentication
+	auth := smtp.PlainAuth("", smtpUsername, password, smtpHost)
 
-	// Send the email
-	newerr := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, msg)
-	if newerr != nil {
-		fmt.Println(err)
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{
-			"message": "Failed to send email",
-		})
+	err = smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, msg)
+	if err != nil {
+		respondWithError(c, http.StatusInternalServerError, "Failed to send email")
 		return
 	}
 
-	// Confirm success
 	c.IndentedJSON(http.StatusOK, gin.H{
 		"message": "Email sent successfully",
 	})
@@ -170,7 +166,7 @@ func sendEmail(c *gin.Context) {
 
 func main() {
 	router := gin.Default()
-	err := godotenv.Load() // This will load the .env file
+	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
