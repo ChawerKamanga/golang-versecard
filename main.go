@@ -99,7 +99,6 @@ func getBibleVerse(verse string) (string, string, error) {
 func generateEmailTemplate(newUser user, verseName string, verseText string) string {
 	randomImageUrl := getRandomImageUrl()
 
-	fmt.Println(randomImageUrl)
 	return `
     <!DOCTYPE html>
     <html>
