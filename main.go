@@ -5,15 +5,29 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/smtp"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
 var BaseURL = "https://query.getbible.net/v2/kjv/"
+
+var imageUrls = []string{
+	"https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg",
+	"https://images.pexels.com/photos/459038/pexels-photo-459038.jpeg",
+	"https://images.pexels.com/photos/3571576/pexels-photo-3571576.jpeg",
+	"https://images.pexels.com/photos/1671230/pexels-photo-1671230.jpeg",
+	"https://images.pexels.com/photos/573863/pexels-photo-573863.jpeg",
+	"https://images.pexels.com/photos/3244513/pexels-photo-3244513.jpeg",
+	"https://images.pexels.com/photos/1547992/pexels-photo-1547992.jpeg",
+	"https://images.pexels.com/photos/624015/pexels-photo-624015.jpeg",
+	"https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg",
+}
 
 type user struct {
 	ID    int    `json:"id"`
@@ -42,10 +56,10 @@ type VerseResponse map[string]struct {
 	} `json:"verses"`
 }
 
-func testFun(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, gin.H{
-		"message": "test is done",
-	})
+func getRandomImageUrl() string {
+	src := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(src)
+	return imageUrls[r.Intn(len(imageUrls))]
 }
 
 func checkError(err error) {
@@ -83,25 +97,41 @@ func getBibleVerse(verse string) (string, string, error) {
 }
 
 func generateEmailTemplate(newUser user, verseName string, verseText string) string {
+	randomImageUrl := getRandomImageUrl()
+
+	fmt.Println(randomImageUrl)
 	return `
     <!DOCTYPE html>
     <html>
     <head>
     <style>
+        * body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
         .email-container {
-            background-image: url('https://images.pexels.com/photos/3225517/pexels-photo-3225517.jpeg');
+            background-image: url('` + randomImageUrl + `');
             background-size: cover;
-            padding: 20px;
+            background-position: center;
+            padding: 10px;
             text-align: center;
             color: #ffffff;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
         }
+
         .email-content {
-            background: rgba(0, 0, 0, 0.7); /* semi-transparent black */
+            background: rgba(0, 0, 0, 0.7);
             padding: 20px;
         }
+
         h1 {
             color: #fff;
         }
+
         p {
             color: #fff;
         }
@@ -110,8 +140,8 @@ func generateEmailTemplate(newUser user, verseName string, verseText string) str
     <body>
     <div class="email-container">
         <div class="email-content">
-            <h1>Welcome to Our Community, ` + newUser.Name + `!</h1>
-            <p>Hello ` + newUser.Name + `, here is your verse:</p>
+            <p>Hello ` + newUser.Name + `</p>
+            <h1>Here is Your Verse!</h1>
             <p><strong>` + verseName + `</strong></p>
             <p>` + verseText + `</p>
         </div>
@@ -171,7 +201,6 @@ func main() {
 		log.Fatalf("Error loading .env file")
 	}
 
-	router.GET("/test", testFun)
 	router.POST("/user", sendEmail)
 
 	router.Run()
