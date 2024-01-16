@@ -34,6 +34,18 @@ These instructions will guide you through getting a copy of the project up and r
    ```bash
    $ go get github.com/joho/godotenv
 
+5. **Create a .env file**
+
+    ```bash
+    $ touch .env 
+
+    <!-- Add the following variables in .env -->
+    SMTP_HOST=
+    SMTP_PORT=
+    SMTP_USERNAME=
+    SMTP_PASSWORD=
+    FROM_EMAIL=
+
 5. **Run the code**
 
    ```bash
@@ -43,6 +55,9 @@ These instructions will guide you through getting a copy of the project up and r
 
    ```bash
     $ curl localhost:8080/user --include --header "Content-Type: application/json" -d @body.json --request "POST"
+
+## Contributing
+Open-source communities are awesome because people can collaborate and learn from each other. So if you have any ideas on how to make this project even cooler, please share them! You can make changes yourself and let me know, or just let me know what you think would be cool to add. And don't forget to show your support by giving the project a star! Thanks a bunch!
 
 ## License
 
