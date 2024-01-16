@@ -8,18 +8,42 @@ These instructions will guide you through getting a copy of the project up and r
 
 ### Prerequisites
 
-What things you need to install the software and how to install them:
-
 - Go (Version 1.21.6)
 - Gin (Version 1.9.1)
 - GoDotEnv
 
 ### Installing
 
-A step-by-step series of examples to set up a development environment:
-
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/ChawerKamanga/golang-versecard
-   cd golang-versecard
+   $ git clone https://github.com/ChawerKamanga/golang-versecard
+
+2. **Enter the directory**
+
+   ```bash
+   $ cd golang-versecard
+
+3. **Install Gin**
+
+   ```bash
+   $ go get -u github.com/gin-gonic/gin
+
+4. **Install DotEnv**
+
+   ```bash
+   $ go get github.com/joho/godotenv
+
+5. **Run the code**
+
+   ```bash
+    $ go run main.go
+
+6. **Test the API Using Curl**
+
+   ```bash
+    $ curl localhost:8080/user --include --header "Content-Type: application/json" -d @body.json --request "POST"
+
+## License
+
+This project is licensed under the MIT License
