@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"versecard-pro/handlers/"
+	"versecard-pro/pkg/config"
 
 	"github.com/gin-gonic/gin"
 )
